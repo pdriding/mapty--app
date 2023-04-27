@@ -1,6 +1,7 @@
 'use strict';
 
 const form = document.querySelector('.form');
+const sidebar = document.querySelector('.sidebar');
 const containerWorkouts = document.querySelector('.workouts');
 const inputType = document.querySelector('.form__input--type');
 const inputDistance = document.querySelector('.form__input--distance');
@@ -87,16 +88,38 @@ class App {
     containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
   }
 
-  _addEventWorkout() {
-    const editBtn = document.querySelectorAll('.editButton');
-    const deleteBtn = document.querySelectorAll('.deleteButton');
+  // _addEventWorkout() {
+  //   const editBtn = document.querySelectorAll('.editButton');
+  //   const deleteBtn = document.querySelectorAll('.deleteButton');
 
-    editBtn.forEach(btn =>
-      btn.addEventListener('click', this._editWorkout.bind(this))
-    );
-    deleteBtn.forEach(btn =>
-      btn.addEventListener('click', this._deleteWorkout.bind(this))
-    );
+  //   editBtn.forEach(btn =>
+  //     btn.addEventListener('click', this._editWorkout.bind(this))
+  //   );
+  //   deleteBtn.forEach(btn =>
+  //     btn.addEventListener('click', this._deleteWorkout.bind(this))
+  //   );
+  // }
+
+  _addEventWorkout() {
+    if (this._eventHandlerAdded) {
+      return;
+    }
+
+    const workoutList = document.querySelector('.workouts');
+
+    workoutList.addEventListener('click', e => {
+      if (!e.target.closest('.workout')) return;
+
+      const workoutIndex = e.target.closest('.workout').dataset.index;
+
+      if (e.target.classList.contains('deleteButton')) {
+        this._deleteWorkout(e, workoutIndex);
+      } else if (e.target.classList.contains('editButton')) {
+        this._editWorkout(e, workoutIndex);
+      }
+    });
+
+    this._eventHandlerAdded = true;
   }
 
   _getWorkoutData(e) {
@@ -120,13 +143,11 @@ class App {
     // Get workout data
     const [closestWorkout, workoutIndex] = [...this._getWorkoutData(e)];
 
-    console.log(closestWorkout);
-
     // Delete from form
     closestWorkout.remove();
 
     // Remove Marker
-    this.removeWorkoutMarker(this.#markers[workoutIndex]);
+    this.removeWorkoutMarker(this.#workouts[workoutIndex].marker);
 
     //Delete from data
     this.#workouts.splice(workoutIndex, 1);
@@ -141,9 +162,7 @@ class App {
     e.stopImmediatePropagation();
 
     // Get workout data
-    const [closestWorkout, workoutIndex, workout] = [
-      ...this._getWorkoutData(e),
-    ];
+    const [closestWorkout, workoutIndex, workout] = this._getWorkoutData(e);
 
     // Open form
     this.#mapEvent = {
@@ -168,27 +187,115 @@ class App {
 
     // Remove workouts from form & map
     allWorkouts.forEach(workout => workout.remove());
-    this.#markers.forEach(marker => this.removeWorkoutMarker(marker));
+    // this.#markers.forEach(marker => this.removeWorkoutMarker(marker));
+
+    this.#workouts.forEach(workout => this.removeWorkoutMarker(workout.marker));
 
     //Reset data
     this.#workouts = [];
-    this.#markers = [];
+    // this.#markers = [];
 
     //remove Delete button
-    deleteAllBtn.remove();
+    if (deleteAllBtn) deleteAllBtn.remove();
 
     // Update storage
     this._setLocalStorage();
   }
 
-  _addDeleteButton() {
-    const deleteAllBtn = document.querySelectorAll('.deleteAllButton');
-    const html = `<button class="deleteAllButton">DELETE ALL</button>`;
+  // _addDeleteButton() {
+  //   const deleteAllBtn = document.querySelectorAll('.deleteAllButton');
+  //   const htmlDelete = `<button class="deleteAllButton">DELETE ALL</button>`;
 
-    if (this.#workouts.length > 1 && deleteAllBtn.length < 1) {
-      workouts.insertAdjacentHTML('beforeend', html);
-      const deleteAllBtn1 = document.querySelector('.deleteAllButton');
-      deleteAllBtn1.addEventListener('click', this._deleteAll.bind(this));
+  //   if (this.#workouts.length > 1 && deleteAllBtn.length < 1) {
+  //     // Insert HTML
+  //     workouts.insertAdjacentHTML('beforeend', htmlDelete);
+
+  //     // Add event listener
+  //     const deleteAllBtn1 = document.querySelector('.deleteAllButton');
+  //     deleteAllBtn1.addEventListener('click', this._deleteAll.bind(this));
+  //   }
+  // }
+
+  _addDeleteButton() {
+    const workouts = document.querySelector('.workouts');
+
+    if (
+      this.#workouts.length > 1 &&
+      !workouts.querySelector('.deleteAllButton')
+    ) {
+      const htmlDelete = `<button class="deleteAllButton">DELETE ALL</button>`;
+      workouts.insertAdjacentHTML('beforeend', htmlDelete);
+
+      workouts.addEventListener('click', e => {
+        if (e.target.classList.contains('deleteAllButton')) {
+          this._deleteAll();
+        }
+      });
+    }
+  }
+
+  _sortWorkouts(e) {
+    // Get all workout elements
+    const allWorkouts = document.querySelectorAll('.workout');
+
+    // Get the sorting option chosen by the user
+    const sortChoice = e.target.value;
+
+    // Remove all workout elements from the DOM
+    allWorkouts.forEach(workout => workout.remove());
+
+    // Sort the workouts based on the user's choice
+    const sorted =
+      sortChoice === 'distance' || sortChoice === 'duration'
+        ? this.#workouts.slice().sort((a, b) => b[sortChoice] - a[sortChoice])
+        : this.#workouts;
+
+    // Render the sorted workouts
+    sorted.forEach(workout => this.renderWorkout(workout));
+  }
+
+  // _addSortDropdown() {
+  //   const sortBox = document.querySelectorAll('.sort');
+  //   const htmlSort = `
+  //     <span><label for="sort">Sort by:</label><select name="sort" class="sort">
+  //   <option value="empty"></option>
+  //   <option value="distance">Distance</option>
+  //   <option value="duration">Duration</option>
+  //     </select></span>`;
+
+  //   if (this.#workouts.length > 1 && sortBox.length < 1) {
+  //     // Insert HTML
+  //     sidebar.insertAdjacentHTML('beforeend', htmlSort);
+
+  //     // Add Event listener
+  //     const sortBox1 = document.querySelector('.sort');
+  //     sortBox1.addEventListener('change', this._sortWorkouts.bind(this));
+  //   }
+  // }
+
+  _addSortDropdown() {
+    // Get all the existing .sort elements (there should be zero or one)
+    const sortBoxes = document.querySelectorAll('.sort');
+
+    // Define the HTML code for the sort dropdown
+    const sortDropdownHTML = `
+      <span>
+        <label for="sort">Sort by:</label>
+        <select name="sort" class="sort">
+          <option value="empty"></option>
+          <option value="distance">Distance</option>
+          <option value="duration">Duration</option>
+        </select>
+      </span>`;
+
+    // Check if there is more than one workout and if the sort dropdown has not been added yet
+    if (this.#workouts.length > 1 && !document.querySelector('.sort')) {
+      // Insert the sort dropdown HTML code before the end of the sidebar element
+      sidebar.insertAdjacentHTML('beforeend', sortDropdownHTML);
+
+      // Add an event listener to the new .sort element
+      const sortBox = document.querySelector('.sort');
+      sortBox.addEventListener('change', this._sortWorkouts.bind(this));
     }
   }
 
@@ -335,7 +442,14 @@ class App {
       )
       .openPopup();
 
-    this.#markers.push(marker);
+    // this.#markers.push(marker);
+
+    if (this.#workouts.length > 0) {
+      this.#workouts[this.#workouts.length - 1] = {
+        ...this.#workouts[this.#workouts.length - 1],
+        marker: marker,
+      };
+    }
   }
 
   renderWorkout(workout) {
@@ -386,6 +500,7 @@ class App {
   </li>`;
     form.insertAdjacentHTML('afterend', html);
     this._addDeleteButton();
+    this._addSortDropdown();
   }
 
   _moveToPopup(e) {
@@ -396,6 +511,7 @@ class App {
     const workout = this.#workouts.find(
       work => work.id === workoutEl.dataset.id
     );
+    if (!workout) return;
     this.#map.setView(workout.coords, this.#mapZoomLevel, {
       animite: true,
       pan: {
@@ -407,8 +523,22 @@ class App {
     // workout.click();
   }
 
+  // _setLocalStorage() {
+  //   localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+  // }
+
+  // This will emove any circular references in the object, which can cause issues when attempting to stringify the object
+
   _setLocalStorage() {
-    localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+    localStorage.setItem(
+      'workouts',
+      JSON.stringify(this.#workouts, (key, value) => {
+        if (key === 'marker') {
+          return null;
+        }
+        return value;
+      })
+    );
   }
 
   _getLocalStorage() {
@@ -418,7 +548,6 @@ class App {
     this.#workouts.forEach(workout => {
       this.renderWorkout(workout);
     });
-
     // Add event listeners
     this._addEventWorkout();
   }
