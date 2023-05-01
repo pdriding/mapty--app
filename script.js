@@ -2,19 +2,19 @@
 
 const form = document.querySelector('.form');
 const sidebar = document.querySelector('.sidebar');
-const containerWorkouts = document.querySelector('.workouts');
 const inputType = document.querySelector('.form__input--type');
 const inputDistance = document.querySelector('.form__input--distance');
 const inputDuration = document.querySelector('.form__input--duration');
 const inputCadence = document.querySelector('.form__input--cadence');
 const inputElevation = document.querySelector('.form__input--elevation');
-const workouts = document.querySelector('.workouts');
 const formBtn = document.querySelector('.form__btn');
+const deleteAllBtn = document.querySelector('.deleteAllButton');
 
 class Workout {
   date = new Date();
   id = (Date.now() + '').slice(-10);
   clicks = 0;
+  marker = null;
   constructor(coords, distance, duration) {
     this.coords = coords; // [lat, lng]
     this.distance = distance;
@@ -74,18 +74,21 @@ class App {
   #mapZoomLevel = 13;
   #mapEvent;
   #workouts = [];
-  #markers = [];
+  #eventHandlerAdded = false;
   constructor() {
     // Get users position
     this._getPosition();
 
-    // Get data from local storage
-    this._getLocalStorage();
+    // Query Selectors
+    this.containerWorkouts = document.querySelector('.workouts');
 
     // Event Listeners
     form.addEventListener('submit', this._newWorkout.bind(this));
     inputType.addEventListener('change', this._toggleElevationField);
-    containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
+    this.containerWorkouts.addEventListener(
+      'click',
+      this._moveToPopup.bind(this)
+    );
   }
 
   // _addEventWorkout() {
@@ -100,26 +103,24 @@ class App {
   //   );
   // }
 
-  _addEventWorkout() {
-    if (this._eventHandlerAdded) {
+  _addEventWorkout(workoutList) {
+    if (this.#eventHandlerAdded) {
       return;
     }
 
-    const workoutList = document.querySelector('.workouts');
+    // const workoutList = document.querySelector('.workouts');
 
     workoutList.addEventListener('click', e => {
       if (!e.target.closest('.workout')) return;
 
-      const workoutIndex = e.target.closest('.workout').dataset.index;
-
       if (e.target.classList.contains('deleteButton')) {
-        this._deleteWorkout(e, workoutIndex);
+        this._deleteWorkout(e);
       } else if (e.target.classList.contains('editButton')) {
-        this._editWorkout(e, workoutIndex);
+        this._editWorkout(e);
       }
     });
 
-    this._eventHandlerAdded = true;
+    this.#eventHandlerAdded = true;
   }
 
   _getWorkoutData(e) {
@@ -138,10 +139,11 @@ class App {
 
   _deleteWorkout(e) {
     e.preventDefault();
-    e.stopImmediatePropagation();
+    // e.stopImmediatePropagation();
+    const deleteAllBtn = document.querySelector('.deleteAllButton');
 
     // Get workout data
-    const [closestWorkout, workoutIndex] = [...this._getWorkoutData(e)];
+    const [closestWorkout, workoutIndex] = this._getWorkoutData(e);
 
     // Delete from form
     closestWorkout.remove();
@@ -151,7 +153,11 @@ class App {
 
     //Delete from data
     this.#workouts.splice(workoutIndex, 1);
-    this.#markers.splice(workoutIndex, 1);
+
+    // Remove delete all button if only 1 workout
+    if (this.#workouts.length > 1 && this.#workouts.length < 2) {
+      deleteAllBtn.remove();
+    }
 
     // Update storage
     this._setLocalStorage();
@@ -159,7 +165,7 @@ class App {
 
   _editWorkout(e) {
     e.preventDefault();
-    e.stopImmediatePropagation();
+    // e.stopImmediatePropagation();
 
     // Get workout data
     const [closestWorkout, workoutIndex, workout] = this._getWorkoutData(e);
@@ -170,9 +176,12 @@ class App {
     };
     this._showForm(this.#mapEvent);
 
+    // Focus on form
+    inputDistance.focus();
+
     // Delete original workout & remove marker
     closestWorkout.remove();
-    this.removeWorkoutMarker(this.#markers[workoutIndex]);
+    this.removeWorkoutMarker(this.#workouts[workoutIndex].marker);
 
     //Delete from data
     this.#workouts.splice(workoutIndex, 1);
@@ -186,14 +195,11 @@ class App {
     const deleteAllBtn = document.querySelector('.deleteAllButton');
 
     // Remove workouts from form & map
-    allWorkouts.forEach(workout => workout.remove());
-    // this.#markers.forEach(marker => this.removeWorkoutMarker(marker));
-
+    [...allWorkouts].forEach(workout => workout.remove());
     this.#workouts.forEach(workout => this.removeWorkoutMarker(workout.marker));
 
     //Reset data
     this.#workouts = [];
-    // this.#markers = [];
 
     //remove Delete button
     if (deleteAllBtn) deleteAllBtn.remove();
@@ -217,16 +223,16 @@ class App {
   // }
 
   _addDeleteButton() {
-    const workouts = document.querySelector('.workouts');
+    // const workouts = document.querySelector('.workouts');
 
     if (
       this.#workouts.length > 1 &&
-      !workouts.querySelector('.deleteAllButton')
+      !this.containerWorkouts.querySelector('.deleteAllButton')
     ) {
       const htmlDelete = `<button class="deleteAllButton">DELETE ALL</button>`;
-      workouts.insertAdjacentHTML('beforeend', htmlDelete);
+      this.containerWorkouts.insertAdjacentHTML('beforeend', htmlDelete);
 
-      workouts.addEventListener('click', e => {
+      this.containerWorkouts.addEventListener('click', e => {
         if (e.target.classList.contains('deleteAllButton')) {
           this._deleteAll();
         }
@@ -235,7 +241,7 @@ class App {
   }
 
   _sortWorkouts(e) {
-    // Get all workout elements
+    // Select workouts
     const allWorkouts = document.querySelectorAll('.workout');
 
     // Get the sorting option chosen by the user
@@ -274,9 +280,6 @@ class App {
   // }
 
   _addSortDropdown() {
-    // Get all the existing .sort elements (there should be zero or one)
-    const sortBoxes = document.querySelectorAll('.sort');
-
     // Define the HTML code for the sort dropdown
     const sortDropdownHTML = `
       <span>
@@ -293,8 +296,10 @@ class App {
       // Insert the sort dropdown HTML code before the end of the sidebar element
       sidebar.insertAdjacentHTML('beforeend', sortDropdownHTML);
 
-      // Add an event listener to the new .sort element
+      // Select the new sort dropdown menu
       const sortBox = document.querySelector('.sort');
+
+      // Add an event listener to the new .sort element
       sortBox.addEventListener('change', this._sortWorkouts.bind(this));
     }
   }
@@ -330,9 +335,8 @@ class App {
       // Handle clicks on map
       this.#map.on('click', this._showForm.bind(this));
 
-      this.#workouts.forEach(workout => {
-        this.renderWorkoutMarker(workout);
-      });
+      // Get data from local storage
+      this._getLocalStorage();
     }
   }
 
@@ -388,7 +392,6 @@ class App {
         !allPositive(distance, duration, cadence)
       )
         return alert('Input have to be positive numbers!');
-
       workout = new Running([lat, lng], distance, duration, cadence);
     }
 
@@ -412,7 +415,7 @@ class App {
     // Render new workout on the list
     this.renderWorkout(workout);
 
-    this._addEventWorkout();
+    this._addEventWorkout(this.containerWorkouts);
 
     // Hide form and clear input fields
     this._hideForm();
@@ -442,14 +445,17 @@ class App {
       )
       .openPopup();
 
-    // this.#markers.push(marker);
+    // This will create a cicrular reference
+    workout.marker = marker;
 
-    if (this.#workouts.length > 0) {
-      this.#workouts[this.#workouts.length - 1] = {
-        ...this.#workouts[this.#workouts.length - 1],
-        marker: marker,
-      };
-    }
+    // BUG
+    // if (this.#workouts.length > 0) {
+    //   this.#workouts[this.#workouts.length - 1] = {
+    //     ...this.#workouts[this.#workouts.length - 1],
+    //     marker: marker,
+    //   };
+    //   console.log(this.#workouts);
+    // }
   }
 
   renderWorkout(workout) {
@@ -459,7 +465,7 @@ class App {
       workout.description
     } <button class="editButton">Edit</button>
     <button class="deleteButton">Delete</button></h2>
-    
+
     <div class="workout__details">
       <span class="workout__icon">${type === 'running' ? '🏃‍♂️' : '🚴‍♀️'}</span>
       <span class="workout__value">${workout.distance}</span>
@@ -520,14 +526,15 @@ class App {
     });
 
     // Using the public interface
-    // workout.click();
+    workout.click();
+    console.log(workout.clicks);
   }
 
   // _setLocalStorage() {
   //   localStorage.setItem('workouts', JSON.stringify(this.#workouts));
   // }
 
-  // This will emove any circular references in the object, which can cause issues when attempting to stringify the object
+  // This will remove any circular references in the object, which can cause issues when attempting to stringify the object
 
   _setLocalStorage() {
     localStorage.setItem(
@@ -545,11 +552,28 @@ class App {
     const data = JSON.parse(localStorage.getItem('workouts'));
     if (!data) return;
     this.#workouts = data;
-    this.#workouts.forEach(workout => {
-      this.renderWorkout(workout);
-    });
+    this.#workouts
+      .filter(workout => workout.type === 'running')
+      .forEach(workout => {
+        // This will now inherit the prototypes
+        Object.setPrototypeOf(workout, Running.prototype);
+        // Render workouts on form
+        this.renderWorkout(workout);
+        // Render markers on the map
+        this.renderWorkoutMarker(workout);
+      });
+    this.#workouts
+      .filter(workout => workout.type === 'cycling')
+      .forEach(workout => {
+        // This will now inherit the prototypes
+        Object.setPrototypeOf(workout, Cycling.prototype);
+        // Render workouts on form
+        this.renderWorkout(workout);
+        // Render markers on the map
+        this.renderWorkoutMarker(workout);
+      });
     // Add event listeners
-    this._addEventWorkout();
+    this._addEventWorkout(this.containerWorkouts);
   }
 
   reset() {
