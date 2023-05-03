@@ -21,13 +21,33 @@ class Workout {
     this.duration = duration;
   }
 
-  _setDescription() {
-    // prettier-ignore
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  async cityLocation() {
+    const [lat, lng] = [...this.coords];
+    try {
+      const response = await fetch(
+        `https://geocode.xyz/${lat},${lng}?geoit=json&auth=36350363082749418844x8665`
+      );
+      const data = await response.json();
+      return data.city;
+    } catch (err) {
+      console.error(`${err} 💥`);
+    }
+  }
 
-    this.description = `${this.type[0].toUpperCase()}${this.type.slice(1)} on ${
-      months[this.date.getMonth()]
-    } ${this.date.getDate()}`;
+  async _setDescription() {
+    try {
+      // prettier-ignore
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+      // Wait for method to get city name
+      const city = await this.cityLocation();
+
+      this.description = `${this.type[0].toUpperCase()}${this.type.slice(
+        1
+      )} in ${city} on ${months[this.date.getMonth()]} ${this.date.getDate()}`;
+    } catch (err) {
+      console.error(`${err} 💥`);
+    }
   }
 
   click() {
@@ -365,63 +385,69 @@ class App {
     inputCadence.closest('.form__row').classList.toggle('form__row--hidden');
   }
 
-  _newWorkout(e) {
-    e.preventDefault();
-    const validInputs = (...inputs) =>
-      inputs.every(inp => Number.isFinite(inp));
-    const allPositive = (...inputs) => inputs.every(inp => inp > 0);
+  async _newWorkout(e) {
+    try {
+      e.preventDefault();
+      const validInputs = (...inputs) =>
+        inputs.every(inp => Number.isFinite(inp));
+      const allPositive = (...inputs) => inputs.every(inp => inp > 0);
 
-    // Get data from the form
-    const type = inputType.value;
-    const distance = +inputDistance.value;
-    const duration = +inputDuration.value;
-    const { lat, lng } = this.#mapEvent.latlng;
-    let workout;
+      // Get data from the form
+      const type = inputType.value;
+      const distance = +inputDistance.value;
+      const duration = +inputDuration.value;
+      const { lat, lng } = this.#mapEvent.latlng;
+      let workout;
 
-    // Check if data is valid
-
-    // if data is runing create running obj
-    if (type === 'running') {
-      const cadence = +inputCadence.value;
       // Check if data is valid
-      if (
-        // !Number.isFinite(distance) ||
-        // !Number.isFinite(duration) ||
-        // !Number.isFinite(cadence)
-        !validInputs(distance, duration, cadence) ||
-        !allPositive(distance, duration, cadence)
-      )
-        return alert('Input have to be positive numbers!');
-      workout = new Running([lat, lng], distance, duration, cadence);
+
+      // if data is runing create running obj
+      if (type === 'running') {
+        const cadence = +inputCadence.value;
+        // Check if data is valid
+        if (
+          // !Number.isFinite(distance) ||
+          // !Number.isFinite(duration) ||
+          // !Number.isFinite(cadence)
+          !validInputs(distance, duration, cadence) ||
+          !allPositive(distance, duration, cadence)
+        )
+          return alert('Input have to be positive numbers!');
+        workout = new Running([lat, lng], distance, duration, cadence);
+        await workout.cityLocation();
+      }
+
+      // if data is cycling create cycling obj
+      if (type === 'cycling') {
+        const elevation = +inputElevation.value;
+        if (
+          !validInputs(distance, duration, elevation) ||
+          !allPositive(distance, duration)
+        )
+          return alert('Input have to be positive numbers!');
+        workout = new Cycling([lat, lng], distance, duration, elevation);
+        await workout.cityLocation();
+      }
+
+      // Add new object to workout array
+      this.#workouts.push(workout);
+
+      // Render workout on map as marker
+      this.renderWorkoutMarker(workout);
+
+      // Render new workout on the list
+      this.renderWorkout(workout);
+
+      this._addEventWorkout(this.containerWorkouts);
+
+      // Hide form and clear input fields
+      this._hideForm();
+
+      //Set local storage
+      this._setLocalStorage();
+    } catch (err) {
+      console.error(`err 💥`);
     }
-
-    // if data is cycling create cycling obj
-    if (type === 'cycling') {
-      const elevation = +inputElevation.value;
-      if (
-        !validInputs(distance, duration, elevation) ||
-        !allPositive(distance, duration)
-      )
-        return alert('Input have to be positive numbers!');
-      workout = new Cycling([lat, lng], distance, duration, elevation);
-    }
-
-    // Add new object to workout array
-    this.#workouts.push(workout);
-
-    // Render workout on map as marker
-    this.renderWorkoutMarker(workout);
-
-    // Render new workout on the list
-    this.renderWorkout(workout);
-
-    this._addEventWorkout(this.containerWorkouts);
-
-    // Hide form and clear input fields
-    this._hideForm();
-
-    //Set local storage
-    this._setLocalStorage();
   }
 
   removeWorkoutMarker(marker) {
@@ -582,3 +608,41 @@ class App {
   }
 }
 const app = new App();
+
+// const whereAmI = async function (lat, lng) {
+//   fetch(
+//     `https://geocode.xyz/${lat},${lng}?geoit=json&auth=36350363082749418844x8665`
+//   )
+//     .then(res => {
+//       if (!res.ok) throw new Error(`Problem with geocoding: ${res.status}`);
+//       return res.json();
+//     })
+//     .then(data => {
+//       return fetch(`https://restcountries.com/v3.1/name/${data.country}`);
+//     })
+//     .then(res => {
+//       if (!res.ok) throw new Error(`Country not found ${res.status}`);
+//       return res.json();
+//     })
+//     .then(data => {
+//       console.log(data[0]);
+//     })
+//     .catch(err => console.error(`${err.message} 💥`));
+// };
+
+// whereAmI(52.508, 13.381);
+
+const whereAmI = async function (lat, lng) {
+  try {
+    const response = await fetch(
+      `https://geocode.xyz/${lat},${lng}?geoit=json&auth=36350363082749418844x8665`
+    );
+    const data = await response.json();
+    return data.city;
+  } catch (err) {
+    console.error(`${err} 💥`);
+  }
+};
+
+const cityName = whereAmI(52.508, 13.381);
+cityName.then(data => console.log(data));
