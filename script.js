@@ -2,6 +2,7 @@
 
 const form = document.querySelector('.form');
 const sidebar = document.querySelector('.sidebar');
+const sortDeleteContainer = document.querySelector('.sortDeleteContainer');
 const inputType = document.querySelector('.form__input--type');
 const inputDistance = document.querySelector('.form__input--distance');
 const inputDuration = document.querySelector('.form__input--duration');
@@ -34,6 +35,24 @@ class Workout {
     }
   }
 
+  async getWeather() {
+    try {
+      const [lat, lng] = [...this.coords];
+      const response = await fetch(
+        `http://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=5b767a584ee07a8b0841986f556904db`
+      );
+      const data = await response.json();
+      const icon = data.weather[0].icon;
+      const link = `https://openweathermap.org/img/wn/${icon}@2x.png`;
+      const img = document.createElement('img');
+      img.src = link;
+      img.classList.add('weather-icon');
+      return img;
+    } catch (err) {
+      console.error(`${err} 💥`);
+    }
+  }
+
   async _setDescription() {
     try {
       // prettier-ignore
@@ -41,10 +60,14 @@ class Workout {
 
       // Wait for method to get city name
       const city = await this.cityLocation();
+      const icon = await this.getWeather();
 
-      this.description = `${this.type[0].toUpperCase()}${this.type.slice(
-        1
-      )} in ${city} on ${months[this.date.getMonth()]} ${this.date.getDate()}`;
+      this.description =
+        `${this.type[0].toUpperCase()}${this.type.slice(1)} ${
+          city ? 'in' : ''
+        } ${city ? city : ''} on ${
+          months[this.date.getMonth()]
+        } ${this.date.getDate()}` + icon.outerHTML;
     } catch (err) {
       console.error(`${err} 💥`);
     }
@@ -161,6 +184,7 @@ class App {
     e.preventDefault();
     // e.stopImmediatePropagation();
     const deleteAllBtn = document.querySelector('.deleteAllButton');
+    const sortParent = document.querySelector('.sort-parent');
 
     // Get workout data
     const [closestWorkout, workoutIndex] = this._getWorkoutData(e);
@@ -175,8 +199,9 @@ class App {
     this.#workouts.splice(workoutIndex, 1);
 
     // Remove delete all button if only 1 workout
-    if (this.#workouts.length > 1 && this.#workouts.length < 2) {
+    if (this.#workouts.length < 2 && this.#workouts.length > 0) {
       deleteAllBtn.remove();
+      sortParent.remove();
     }
 
     // Update storage
@@ -247,12 +272,12 @@ class App {
 
     if (
       this.#workouts.length > 1 &&
-      !this.containerWorkouts.querySelector('.deleteAllButton')
+      !sidebar.querySelector('.deleteAllButton')
     ) {
-      const htmlDelete = `<button class="deleteAllButton">DELETE ALL</button>`;
-      this.containerWorkouts.insertAdjacentHTML('beforeend', htmlDelete);
+      const htmlDelete = `<button class="deleteAllButton">Delete all</button>`;
+      sortDeleteContainer.insertAdjacentHTML('beforeend', htmlDelete);
 
-      this.containerWorkouts.addEventListener('click', e => {
+      sidebar.addEventListener('click', e => {
         if (e.target.classList.contains('deleteAllButton')) {
           this._deleteAll();
         }
@@ -302,7 +327,7 @@ class App {
   _addSortDropdown() {
     // Define the HTML code for the sort dropdown
     const sortDropdownHTML = `
-      <span>
+      <span class="sort-parent">
         <label for="sort">Sort by:</label>
         <select name="sort" class="sort">
           <option value="empty"></option>
@@ -314,7 +339,7 @@ class App {
     // Check if there is more than one workout and if the sort dropdown has not been added yet
     if (this.#workouts.length > 1 && !document.querySelector('.sort')) {
       // Insert the sort dropdown HTML code before the end of the sidebar element
-      sidebar.insertAdjacentHTML('beforeend', sortDropdownHTML);
+      sortDeleteContainer.insertAdjacentHTML('beforeend', sortDropdownHTML);
 
       // Select the new sort dropdown menu
       const sortBox = document.querySelector('.sort');
@@ -415,6 +440,7 @@ class App {
           return alert('Input have to be positive numbers!');
         workout = new Running([lat, lng], distance, duration, cadence);
         await workout.cityLocation();
+        await workout.getWeather();
       }
 
       // if data is cycling create cycling obj
@@ -427,6 +453,7 @@ class App {
           return alert('Input have to be positive numbers!');
         workout = new Cycling([lat, lng], distance, duration, elevation);
         await workout.cityLocation();
+        await workout.getWeather();
       }
 
       // Add new object to workout array
@@ -553,7 +580,7 @@ class App {
 
     // Using the public interface
     workout.click();
-    console.log(workout.clicks);
+    // console.log(workout.clicks);
   }
 
   // _setLocalStorage() {
@@ -608,41 +635,3 @@ class App {
   }
 }
 const app = new App();
-
-// const whereAmI = async function (lat, lng) {
-//   fetch(
-//     `https://geocode.xyz/${lat},${lng}?geoit=json&auth=36350363082749418844x8665`
-//   )
-//     .then(res => {
-//       if (!res.ok) throw new Error(`Problem with geocoding: ${res.status}`);
-//       return res.json();
-//     })
-//     .then(data => {
-//       return fetch(`https://restcountries.com/v3.1/name/${data.country}`);
-//     })
-//     .then(res => {
-//       if (!res.ok) throw new Error(`Country not found ${res.status}`);
-//       return res.json();
-//     })
-//     .then(data => {
-//       console.log(data[0]);
-//     })
-//     .catch(err => console.error(`${err.message} 💥`));
-// };
-
-// whereAmI(52.508, 13.381);
-
-const whereAmI = async function (lat, lng) {
-  try {
-    const response = await fetch(
-      `https://geocode.xyz/${lat},${lng}?geoit=json&auth=36350363082749418844x8665`
-    );
-    const data = await response.json();
-    return data.city;
-  } catch (err) {
-    console.error(`${err} 💥`);
-  }
-};
-
-const cityName = whereAmI(52.508, 13.381);
-cityName.then(data => console.log(data));
