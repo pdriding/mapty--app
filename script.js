@@ -45,8 +45,11 @@ class Workout {
       const icon = data.weather[0].icon;
       const link = `https://openweathermap.org/img/wn/${icon}@2x.png`;
       const img = document.createElement('img');
-      img.src = link;
-      img.classList.add('weather-icon');
+      // img.src = link;
+      // img.classList.add('weather-icon');
+      this.weather = link;
+      // console.log(this.weather);
+      // console.log(img);
       return img;
     } catch (err) {
       console.error(`${err} 💥`);
@@ -60,14 +63,12 @@ class Workout {
 
       // Wait for method to get city name
       const city = await this.cityLocation();
-      const icon = await this.getWeather();
 
-      this.description =
-        `${this.type[0].toUpperCase()}${this.type.slice(1)} ${
-          city ? 'in' : ''
-        } ${city ? city : ''} on ${
-          months[this.date.getMonth()]
-        } ${this.date.getDate()}` + icon.outerHTML;
+      this.description = `${this.type[0].toUpperCase()}${this.type.slice(1)} ${
+        city ? 'in' : ''
+      } ${city ? city : ''} on ${
+        months[this.date.getMonth()]
+      } ${this.date.getDate()}`;
     } catch (err) {
       console.error(`${err} 💥`);
     }
@@ -156,9 +157,9 @@ class App {
     workoutList.addEventListener('click', e => {
       if (!e.target.closest('.workout')) return;
 
-      if (e.target.classList.contains('deleteButton')) {
+      if (e.target.classList.contains('delete-button')) {
         this._deleteWorkout(e);
-      } else if (e.target.classList.contains('editButton')) {
+      } else if (e.target.classList.contains('edit-button')) {
         this._editWorkout(e);
       }
     });
@@ -235,39 +236,7 @@ class App {
     this._setLocalStorage();
   }
 
-  _deleteAll() {
-    const allWorkouts = document.querySelectorAll('.workout');
-    const deleteAllBtn = document.querySelector('.deleteAllButton');
-
-    // Remove workouts from form & map
-    [...allWorkouts].forEach(workout => workout.remove());
-    this.#workouts.forEach(workout => this.removeWorkoutMarker(workout.marker));
-
-    //Reset data
-    this.#workouts = [];
-
-    //remove Delete button
-    if (deleteAllBtn) deleteAllBtn.remove();
-
-    // Update storage
-    this._setLocalStorage();
-  }
-
-  // _addDeleteButton() {
-  //   const deleteAllBtn = document.querySelectorAll('.deleteAllButton');
-  //   const htmlDelete = `<button class="deleteAllButton">DELETE ALL</button>`;
-
-  //   if (this.#workouts.length > 1 && deleteAllBtn.length < 1) {
-  //     // Insert HTML
-  //     workouts.insertAdjacentHTML('beforeend', htmlDelete);
-
-  //     // Add event listener
-  //     const deleteAllBtn1 = document.querySelector('.deleteAllButton');
-  //     deleteAllBtn1.addEventListener('click', this._deleteAll.bind(this));
-  //   }
-  // }
-
-  _addDeleteButton() {
+  _addDeleteAllButton() {
     // const workouts = document.querySelector('.workouts');
 
     if (
@@ -282,6 +251,53 @@ class App {
           this._deleteAll();
         }
       });
+    }
+  }
+
+  _deleteAll() {
+    const allWorkouts = document.querySelectorAll('.workout');
+    const deleteAllBtn = document.querySelector('.deleteAllButton');
+    const sortParent = document.querySelector('.sort-parent');
+
+    // Remove workouts from form & map
+    [...allWorkouts].forEach(workout => workout.remove());
+    this.#workouts.forEach(workout => this.removeWorkoutMarker(workout.marker));
+
+    //Reset data
+    this.#workouts = [];
+
+    //remove Delete button
+    if (deleteAllBtn) deleteAllBtn.remove();
+
+    // Remove Sort button
+    sortParent.remove();
+
+    // Update storage
+    this._setLocalStorage();
+  }
+
+  _addSortDropdown() {
+    // Define the HTML code for the sort dropdown
+    const sortDropdownHTML = `
+      <span class="sort-parent">
+        <label for="sort">Sort by:</label>
+        <select name="sort" class="sort">
+          <option value="empty"></option>
+          <option value="distance">Distance</option>
+          <option value="duration">Duration</option>
+        </select>
+      </span>`;
+
+    // Check if there is more than one workout and if the sort dropdown has not been added yet
+    if (this.#workouts.length > 1 && !document.querySelector('.sort')) {
+      // Insert the sort dropdown HTML code before the end of the sidebar element
+      sortDeleteContainer.insertAdjacentHTML('beforeend', sortDropdownHTML);
+
+      // Select the new sort dropdown menu
+      const sortBox = document.querySelector('.sort');
+
+      // Add an event listener to the new .sort element
+      sortBox.addEventListener('change', this._sortWorkouts.bind(this));
     }
   }
 
@@ -323,31 +339,6 @@ class App {
   //     sortBox1.addEventListener('change', this._sortWorkouts.bind(this));
   //   }
   // }
-
-  _addSortDropdown() {
-    // Define the HTML code for the sort dropdown
-    const sortDropdownHTML = `
-      <span class="sort-parent">
-        <label for="sort">Sort by:</label>
-        <select name="sort" class="sort">
-          <option value="empty"></option>
-          <option value="distance">Distance</option>
-          <option value="duration">Duration</option>
-        </select>
-      </span>`;
-
-    // Check if there is more than one workout and if the sort dropdown has not been added yet
-    if (this.#workouts.length > 1 && !document.querySelector('.sort')) {
-      // Insert the sort dropdown HTML code before the end of the sidebar element
-      sortDeleteContainer.insertAdjacentHTML('beforeend', sortDropdownHTML);
-
-      // Select the new sort dropdown menu
-      const sortBox = document.querySelector('.sort');
-
-      // Add an event listener to the new .sort element
-      sortBox.addEventListener('change', this._sortWorkouts.bind(this));
-    }
-  }
 
   _getPosition() {
     if (navigator.geolocation) {
@@ -462,13 +453,14 @@ class App {
       // Render workout on map as marker
       this.renderWorkoutMarker(workout);
 
+      // Hide form and clear input fields
+      this._hideForm();
+
       // Render new workout on the list
       this.renderWorkout(workout);
 
+      // Add event listners to new workout
       this._addEventWorkout(this.containerWorkouts);
-
-      // Hide form and clear input fields
-      this._hideForm();
 
       //Set local storage
       this._setLocalStorage();
@@ -513,11 +505,22 @@ class App {
 
   renderWorkout(workout) {
     const type = workout.type;
-    let html = `<li class="workout workout--${type}" data-id="${workout.id}">
-    <h2 class="workout__title">${
-      workout.description
-    } <button class="editButton">Edit</button>
-    <button class="deleteButton">Delete</button></h2>
+    let html = `
+    
+    <li class="workout workout--${type}" data-id="${workout.id}">
+
+    <div class="deleteEditIcons">
+    <button class="editButton"><img src="edit-button-green.png" alt="edit button" class="edit-button"/></button>
+    <button class="deleteButton"><img src="x-button.png" alt="edit button" class="delete-button"/></button>
+    </div>
+    
+    <h2 class="workout__title">${workout.description}</h2>   
+
+    <div class="workout__weather">
+    <img src="${
+      workout.weather
+    }" class="weather-icon"><span class="weather__unit">weather</span>
+    </div>
 
     <div class="workout__details">
       <span class="workout__icon">${type === 'running' ? '🏃‍♂️' : '🚴‍♀️'}</span>
@@ -532,15 +535,16 @@ class App {
 
     if (type === 'running')
       html += `
-    <div class="workout__details">
-      <span class="workout__icon">⚡️</span>
-      <span class="workout__value">${workout.pace.toFixed(1)}</span>
-      <span class="workout__unit">min/km</span>
-    </div>
+    
     <div class="workout__details">
       <span class="workout__icon">🦶🏼</span>
       <span class="workout__value">${workout.cadence}</span>
       <span class="workout__unit">spm</span>
+    </div>
+    <div class="workout__details">
+      <span class="workout__icon">⚡️</span>
+      <span class="workout__value">${workout.pace.toFixed(1)}</span>
+      <span class="workout__unit">min/km</span>
     </div>
   </li>`;
 
@@ -558,7 +562,7 @@ class App {
   </div>
   </li>`;
     form.insertAdjacentHTML('afterend', html);
-    this._addDeleteButton();
+    this._addDeleteAllButton();
     this._addSortDropdown();
   }
 
