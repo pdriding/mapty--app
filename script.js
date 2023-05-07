@@ -10,6 +10,9 @@ const inputCadence = document.querySelector('.form__input--cadence');
 const inputElevation = document.querySelector('.form__input--elevation');
 const formBtn = document.querySelector('.form__btn');
 const deleteAllBtn = document.querySelector('.deleteAllButton');
+const overlay = document.querySelector('.overlay');
+const messageContainer = document.querySelector('.message-container');
+const spinnerContainer = document.querySelector('.spinner-container');
 
 class Workout {
   date = new Date();
@@ -29,6 +32,7 @@ class Workout {
         `https://geocode.xyz/${lat},${lng}?geoit=json&auth=36350363082749418844x8665`
       );
       const data = await response.json();
+
       return data.city;
     } catch (err) {
       console.error(`${err} 💥`);
@@ -92,6 +96,7 @@ class Running extends Workout {
     // min/km
 
     this.pace = this.duration / this.distance;
+    console.log(this.pace);
     return this.pace;
   }
 }
@@ -133,6 +138,42 @@ class App {
       'click',
       this._moveToPopup.bind(this)
     );
+  }
+
+  _getPosition() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        this._loadMap.bind(this),
+        function () {
+          alert('Could not get your position');
+        }
+      );
+    }
+  }
+
+  _loadMap(position) {
+    {
+      const { latitude } = position.coords;
+      const { longitude } = position.coords;
+
+      const coords = [latitude, longitude];
+
+      this.#map = L.map('map', {
+        center: [latitude, longitude],
+        zoom: this.#mapZoomLevel,
+      });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(this.#map);
+
+      // Handle clicks on map
+      this.#map.on('click', this._showForm.bind(this));
+
+      // Get data from local storage
+      this._getLocalStorage();
+    }
   }
 
   // _addEventWorkout() {
@@ -205,6 +246,9 @@ class App {
       sortParent.remove();
     }
 
+    // Display message
+    this.displayMessage('Workout removed', 1);
+
     // Update storage
     this._setLocalStorage();
   }
@@ -270,7 +314,10 @@ class App {
     if (deleteAllBtn) deleteAllBtn.remove();
 
     // Remove Sort button
-    sortParent.remove();
+    if (sortParent) sortParent.remove();
+
+    // Workout removed message
+    this.displayMessage('All workouts removed', 1);
 
     // Update storage
     this._setLocalStorage();
@@ -340,42 +387,6 @@ class App {
   //   }
   // }
 
-  _getPosition() {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        this._loadMap.bind(this),
-        function () {
-          alert('Could not get your position');
-        }
-      );
-    }
-  }
-
-  _loadMap(position) {
-    {
-      const { latitude } = position.coords;
-      const { longitude } = position.coords;
-
-      const coords = [latitude, longitude];
-
-      this.#map = L.map('map', {
-        center: [latitude, longitude],
-        zoom: this.#mapZoomLevel,
-      });
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution:
-          '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(this.#map);
-
-      // Handle clicks on map
-      this.#map.on('click', this._showForm.bind(this));
-
-      // Get data from local storage
-      this._getLocalStorage();
-    }
-  }
-
   _showForm(mapE) {
     this.#mapEvent = mapE;
     form.classList.remove('hidden');
@@ -404,6 +415,7 @@ class App {
   async _newWorkout(e) {
     try {
       e.preventDefault();
+
       const validInputs = (...inputs) =>
         inputs.every(inp => Number.isFinite(inp));
       const allPositive = (...inputs) => inputs.every(inp => inp > 0);
@@ -429,6 +441,11 @@ class App {
           !allPositive(distance, duration, cadence)
         )
           return alert('Input have to be positive numbers!');
+
+        // Show loading spinner
+        this._displaySpinner();
+
+        // Create workout
         workout = new Running([lat, lng], distance, duration, cadence);
         await workout.cityLocation();
         await workout.getWeather();
@@ -442,6 +459,11 @@ class App {
           !allPositive(distance, duration)
         )
           return alert('Input have to be positive numbers!');
+
+        // Show loading spinner
+        this._displaySpinner();
+
+        // Create workout
         workout = new Cycling([lat, lng], distance, duration, elevation);
         await workout.cityLocation();
         await workout.getWeather();
@@ -459,6 +481,15 @@ class App {
       // Render new workout on the list
       this.renderWorkout(workout);
 
+      // Hide spinner
+      this.removeSpinner();
+
+      // Display workout added message
+      this.displayMessage(
+        `${workout.type === 'running' ? 'Run' : 'Cycle'} added 💪`,
+        2
+      );
+
       // Add event listners to new workout
       this._addEventWorkout(this.containerWorkouts);
 
@@ -467,6 +498,35 @@ class App {
     } catch (err) {
       console.error(`err 💥`);
     }
+  }
+
+  _displaySpinner() {
+    overlay.classList.remove('hidden');
+    spinnerContainer.classList.remove('hidden');
+  }
+
+  removeSpinner() {
+    overlay.classList.add('hidden');
+    spinnerContainer.classList.add('hidden');
+  }
+
+  displayMessage(message, duration) {
+    const seconds = duration * 1000;
+    overlay.classList.remove('hidden');
+    messageContainer.classList.remove('hidden');
+
+    // Clear message box
+    messageContainer.innerHTML = '';
+
+    // Add message
+    const html = `<p class="inner-message">${message}</p>`;
+    messageContainer.insertAdjacentHTML('afterbegin', html);
+
+    // Set time out
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      messageContainer.classList.add('hidden');
+    }, seconds);
   }
 
   removeWorkoutMarker(marker) {
@@ -552,7 +612,7 @@ class App {
       html += `
     <div class="workout__details">
     <span class="workout__icon">⚡️</span>
-    <span class="workout__value">${workout.speed}</span>
+    <span class="workout__value">${workout.speed.toFixed(1)}</span>
     <span class="workout__unit">km/h</span>
   </div>
   <div class="workout__details">

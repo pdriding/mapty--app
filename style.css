@@ -40,6 +40,10 @@ a:visited {
   color: var(--color-brand--1);
 }
 
+.hidden {
+  display: none;
+}
+
 /* button {
   font-family: inherit;
 } */
@@ -276,8 +280,9 @@ a:visited {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
   order: 2; /* flex order */
   flex: 1;
   max-width: 10rem;
@@ -299,6 +304,8 @@ label[for='sort'] {
 .sort {
   flex: 1;
   font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
   padding: 5px; /* adjust the padding */
   border: 1px solid #ccc; /* add a border */
   border-radius: 4px; /* round the corners */
@@ -396,12 +403,90 @@ select {
 
 /* Add a background color to the scrollbar thumb */
 ::-webkit-scrollbar-thumb {
-  /* background-color: #1e2428; */
-  background-color: var(--color-brand--2);
+  background-color: #5e656b;
+  /* background-color: var(--color-brand--2); */
   border-radius: 10px;
 }
 
 /* Add a hover effect to the scrollbar thumb */
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #5e656b;
+  background-color: #464c52;
+}
+
+/*---------Overlay--------------- */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 99999;
+  backdrop-filter: blur(4px);
+
+  transition: all 1s;
+  opacity: 1;
+}
+
+/* --------- Message Box ------------- */
+
+.message-container,
+.spinner-container {
+  position: fixed;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border-radius: 5px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  height: 20%;
+  width: 30%;
+  transform: translate(-50%, -50%);
+  background-color: #fff;
+  border: 1px solid #ccc;
+  padding: 10px;
+  z-index: 999999999;
+
+  transition: opacity 0.5s ease-in-out;
+  opacity: 1;
+}
+
+.message-container {
+  font-size: 16px;
+  color: var(--color-dark--1);
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.message-container.hidden,
+.spinner-container.hidden,
+.overlay.hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+
+/* --------- Loading Spinner ------------ */
+
+.spinner {
+  position: fixed;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid var(--color-dark--2);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 2s linear infinite;
+  margin: auto;
+  z-index: 9999999999999999;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
