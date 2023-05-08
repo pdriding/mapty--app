@@ -3,6 +3,7 @@
 const form = document.querySelector('.form');
 const sidebar = document.querySelector('.sidebar');
 const sortDeleteContainer = document.querySelector('.sortDeleteContainer');
+const starterMessage = document.querySelector('.starter__message');
 const inputType = document.querySelector('.form__input--type');
 const inputDistance = document.querySelector('.form__input--distance');
 const inputDuration = document.querySelector('.form__input--duration');
@@ -96,7 +97,6 @@ class Running extends Workout {
     // min/km
 
     this.pace = this.duration / this.distance;
-    console.log(this.pace);
     return this.pace;
   }
 }
@@ -246,6 +246,13 @@ class App {
       sortParent.remove();
     }
 
+    // Show start message if no workouts
+    console.log(this.#workouts.length);
+    if (this.#workouts.length < 1) {
+      console.log('hello');
+      this._showStartupMessage();
+    }
+
     // Display message
     this.displayMessage('Workout removed', 1);
 
@@ -292,7 +299,7 @@ class App {
 
       sidebar.addEventListener('click', e => {
         if (e.target.classList.contains('deleteAllButton')) {
-          this._deleteAll();
+          this._deleteAllConfirm();
         }
       });
     }
@@ -316,11 +323,42 @@ class App {
     // Remove Sort button
     if (sortParent) sortParent.remove();
 
+    // Show start message
+    this._showStartupMessage();
+
     // Workout removed message
     this.displayMessage('All workouts removed', 1);
 
     // Update storage
     this._setLocalStorage();
+  }
+
+  _deleteAllConfirm() {
+    this._showMessageContainer();
+
+    // Create markup
+    const html = `<div class="delete-confirmation">
+    <p class="delete-confirm-text">Delete all workouts?</p>
+    <div>
+    <button class="confirmation-message__button--confirm">Yes</button>
+    <button class="confirmation-message__button--cancel">No</button>
+    </div>
+    </div>`;
+
+    // Insert markup
+    messageContainer.insertAdjacentHTML('afterbegin', html);
+
+    // Select buttons
+    const confirmBtn = document.querySelector(
+      '.confirmation-message__button--confirm'
+    );
+    const cancelBtn = document.querySelector(
+      '.confirmation-message__button--cancel'
+    );
+
+    // Add event listeners
+    confirmBtn.addEventListener('click', this._deleteAll.bind(this));
+    cancelBtn.addEventListener('click', this._hideMessageContainer.bind(this));
   }
 
   _addSortDropdown() {
@@ -388,7 +426,13 @@ class App {
   // }
 
   _showForm(mapE) {
+    // Remove starter message
+    if (starterMessage) this._hideStartupMessage();
+
+    // Set map event
     this.#mapEvent = mapE;
+
+    // Show form
     form.classList.remove('hidden');
     inputDistance.focus();
   }
@@ -486,7 +530,9 @@ class App {
 
       // Display workout added message
       this.displayMessage(
-        `${workout.type === 'running' ? 'Run' : 'Cycle'} added 💪`,
+        `${workout.type === 'running' ? 'Run' : 'Cycle'} added ${
+          workout.type === 'running' ? '🏃‍♂️' : '🚴‍♂️'
+        }`,
         2
       );
 
@@ -510,13 +556,23 @@ class App {
     spinnerContainer.classList.add('hidden');
   }
 
-  displayMessage(message, duration) {
-    const seconds = duration * 1000;
-    overlay.classList.remove('hidden');
-    messageContainer.classList.remove('hidden');
-
+  _showMessageContainer() {
     // Clear message box
     messageContainer.innerHTML = '';
+
+    overlay.classList.remove('hidden');
+    messageContainer.classList.remove('hidden');
+  }
+
+  _hideMessageContainer() {
+    overlay.classList.add('hidden');
+    messageContainer.classList.add('hidden');
+  }
+
+  displayMessage(message, duration) {
+    const seconds = duration * 1000;
+
+    this._showMessageContainer();
 
     // Add message
     const html = `<p class="inner-message">${message}</p>`;
@@ -524,8 +580,7 @@ class App {
 
     // Set time out
     setTimeout(() => {
-      overlay.classList.add('hidden');
-      messageContainer.classList.add('hidden');
+      this._hideMessageContainer();
     }, seconds);
   }
 
@@ -665,9 +720,19 @@ class App {
     );
   }
 
+  _hideStartupMessage() {
+    starterMessage.classList.add('hidden');
+  }
+
+  _showStartupMessage() {
+    console.log('2');
+    starterMessage.classList.remove('hidden');
+  }
+
   _getLocalStorage() {
     const data = JSON.parse(localStorage.getItem('workouts'));
-    if (!data) return;
+    if (!data || data.length === 0) return;
+    this.hideStartupMessage();
     this.#workouts = data;
     this.#workouts
       .filter(workout => workout.type === 'running')
